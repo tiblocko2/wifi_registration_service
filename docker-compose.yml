@@ -3,6 +3,7 @@ version: "3.9"
 
 services:
   postgres:
+    network_mode: host
     image: postgres:16
     container_name: postgres
     restart: unless-stopped
@@ -22,6 +23,7 @@ services:
       retries: 5
 
   rabbitmq:
+    network_mode: host
     image: rabbitmq:3-management
     container_name: rabbitmq
     restart: unless-stopped
@@ -40,6 +42,7 @@ services:
       retries: 5
 
   otp_verif_serv:
+    network_mode: host
     build:
       context: ./otp_verif_serv
     container_name: otp_verif_serv
@@ -65,6 +68,7 @@ services:
       retries: 5
 
   sms_sender:
+    network_mode: host
     build:
       context: ./sms_sender
     container_name: sms_sender
@@ -81,6 +85,7 @@ services:
         condition: service_healthy
 
   otp_frontend:
+    network_mode: host
     build:
       context: ./otp_frontend
     container_name: otp_frontend
@@ -92,6 +97,7 @@ services:
         condition: service_healthy
 
   wifi_access_service:
+    network_mode: host
     build:
       context: ./wifi_access_service
     container_name: wifi_access_service
