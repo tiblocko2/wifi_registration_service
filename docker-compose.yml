@@ -1,0 +1,113 @@
+version: "3.9"
+#network_mode: host
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: otp_user
+      POSTGRES_PASSWORD: otp_pass
+      POSTGRES_DB: otp_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U otp_user -d otp_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: pass
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  otp_verif_serv:
+    build:
+      context: ./otp_verif_serv
+    container_name: otp_verif_serv
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://otp_user:otp_pass@postgres:5432/otp_db
+      RABBITMQ_URL: amqp://user:pass@rabbitmq:5672
+      RABBITMQ_QUEUE: phone_query
+      RABBITMQ_WIFI_QUEUE: wifi_user_queue
+      RUST_LOG: otp_verif_serv=debug
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      # Проверяем, что HTTP сервер реально жив
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8080"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  sms_sender:
+    build:
+      context: ./sms_sender
+    container_name: sms_sender
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://otp_user:otp_pass@postgres:5432/otp_db
+      RABBITMQ_URL: amqp://user:pass@rabbitmq:5672
+      RABBITMQ_QUEUE: phone_query
+      RUST_LOG: sms_sender=debug
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  otp_frontend:
+    build:
+      context: ./otp_frontend
+    container_name: otp_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      otp_verif_serv:
+        condition: service_healthy
+
+  wifi_access_service:
+    build:
+      context: ./wifi_access_service
+    container_name: wifi_access_service
+    restart: unless-stopped
+    environment:
+      RABBITMQ_URL: amqp://user:pass@rabbitmq:5672
+      RABBITMQ_WIFI_QUEUE: wifi_user_queue
+      MIKROTIK_HOST: 192.168.2.1
+      MIKROTIK_USER: admin
+      MIKROTIK_PASS: admin
+      RUST_LOG: wifi_access_serv=debug
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+
+volumes:
+  pgdata:
+  rabbitmq_data:

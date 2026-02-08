@@ -1,0 +1,16 @@
+[package]
+name = "sms_sender"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.100"
+async-trait = "0.1.89"
+dashmap = "6.1.0"
+dotenvy = "0.15.7"
+futures-util = "0.3.31"
+lapin = "3.7.2"
+reqwest = { version = "0.13.1", features = ["json"] }
+sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio-native-tls"] }
+tokio = { version = "1.49.0", features = ["full"] }
+tracing = "0.1.44"
